@@ -166,7 +166,7 @@
     </div>
   </div>
 
-  <div class="bottom-nav">
+    <div class="bottom-nav">
     <button class="navbtn on" id="nav-tong-quan" onclick="showTab('tong-quan')"><span class="ic">🏺</span>Tổng quan</button>
     <button class="navbtn" id="nav-giao-dich" onclick="showTab('giao-dich')"><span class="ic">💸</span>Giao dịch</button>
     <button class="navbtn" id="nav-bao-cao" onclick="showTab('bao-cao')"><span class="ic">📊</span>Báo cáo</button>
@@ -174,6 +174,38 @@
   </div>
 </div>
 
+<!-- ============ MODAL: THÊM KHOẢN THU/CHI ============ -->
+<div class="overlay" id="transactionModal">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeModal('transactionModal')">✕</button>
+    <h3>Thêm khoản thu/chi</h3>
+
+    <label>Loại</label>
+    <div style="display:flex; gap:8px;">
+      <button type="button" class="btn" id="typeBtnThu" style="flex:1;" onclick="setTransactionType('thu')">💰 Khoản thu</button>
+      <button type="button" class="btn" id="typeBtnChi" style="flex:1;" onclick="setTransactionType('chi')">💸 Khoản chi</button>
+    </div>
+
+    <div id="jarSelectSection" style="display:none;">
+      <label>Chi từ lọ nào?</label>
+      <select id="txnJarId"></select>
+    </div>
+
+    <label>Số tiền</label>
+    <input type="number" id="txnAmount" placeholder="0">
+
+    <label>Ghi chú chi tiết *</label>
+    <textarea id="txnNote" rows="3" placeholder="VD: Ăn sáng cả nhà, có cần thiết không? / Lương tháng 8..."></textarea>
+
+    <label>Ngày</label>
+    <input type="date" id="txnDate">
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="confirmAddTransaction()">Lưu khoản này</button>
+    </div>
+  </div>
+</div>
+  
 <!-- ============ FIREBASE ============ -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -312,8 +344,73 @@ function showTab(name){
 function openModal(id){ document.getElementById(id).classList.add('show'); }
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
+let currentTxnType = 'chi';
+
 function openAddTransaction(){
-  alert('Tính năng thêm giao dịch sẽ hoàn thiện ở bước tiếp theo.');
+  document.getElementById('txnAmount').value = '';
+  document.getElementById('txnNote').value = '';
+  document.getElementById('txnDate').value = new Date().toISOString().slice(0,10);
+  const jarSelect = document.getElementById('txnJarId');
+  jarSelect.innerHTML = jars.map(j => `<option value="${j.id}">${j.name} (${j.percent}%)</option>`).join('');
+  setTransactionType('chi');
+  openModal('transactionModal');
+}
+
+function setTransactionType(type){
+  currentTxnType = type;
+  document.getElementById('typeBtnThu').className = type === 'thu' ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('typeBtnChi').className = type === 'chi' ? 'btn btn-primary' : 'btn btn-ghost';
+  document.getElementById('jarSelectSection').style.display = type === 'chi' ? 'block' : 'none';
+}
+
+function getJarBalance(jarId){
+  const totalIncome = transactions.filter(t => t.type === 'thu').reduce((s,t) => s + (t.amount||0), 0);
+  const jar = jars.find(j => j.id === jarId);
+  if (!jar) return 0;
+  const allocated = totalIncome * (jar.percent/100);
+  const spent = transactions.filter(t => t.type === 'chi' && t.jarId === jarId).reduce((s,t) => s + (t.amount||0), 0);
+  return allocated - spent;
+}
+
+function confirmAddTransaction(){
+  const amount = parseFloat(document.getElementById('txnAmount').value) || 0;
+  const note = document.getElementById('txnNote').value.trim();
+  const date = document.getElementById('txnDate').value;
+
+  if (!amount || amount <= 0){ alert('Nhập số tiền hợp lệ.'); return; }
+  if (!note){ alert('Vui lòng nhập ghi chú chi tiết cho khoản này.'); return; }
+  if (!date){ alert('Chọn ngày.'); return; }
+
+  const data = {
+    type: currentTxnType,
+    amount, note, date,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  if (currentTxnType === 'chi'){
+    const jarId = document.getElementById('txnJarId').value;
+    const jar = jars.find(j => j.id === jarId);
+    data.jarId = jarId;
+    data.jarName = jar ? jar.name : '';
+
+    const currentBalance = getJarBalance(jarId);
+    const remaining = currentBalance - amount;
+    if (remaining < 0){
+      const ok = confirm(
+        '⚠️ CẢNH BÁO VƯỢT HẠN MỨC!\n\n' +
+        'Lọ "' + data.jarName + '" hiện còn: ' + money(currentBalance) + '\n' +
+        'Khoản chi này: ' + money(amount) + '\n' +
+        'Sẽ ÂM: ' + money(Math.abs(remaining)) + '\n\n' +
+        'Cân nhắc: khoản chi này có thực sự cần thiết không?\n\n' +
+        'Vẫn muốn ghi khoản chi này?'
+      );
+      if (!ok) return;
+    }
+  }
+
+  familyRef.collection('transactions').add(data).then(() => {
+    closeModal('transactionModal');
+  }).catch(e => alert('Lỗi: ' + e.message));
 }
 
 function listenTransactions(){
