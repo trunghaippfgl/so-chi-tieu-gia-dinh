@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sổ Chi Tiêu Gia Đình</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1A17;
+    --panel:#16241F;
+    --panel2:#1D3129;
+    --line:#2C4438;
+    --teal-500:#3FBF9F;
+    --teal-400:#5ED4B5;
+    --gold-500:#E0B44C;
+    --red-500:#E0625C;
+    --text:#EAF3EF;
+    --text-dim:#9BB5AB;
+  }
+  *{ box-sizing:border-box; }
+  body{ font-family:'Be Vietnam Pro', sans-serif; background:var(--bg); color:var(--text); margin:0; padding:0; min-height:100vh; }
+  .mono{ font-family:'JetBrains Mono', monospace; }
+
+  #appShell{ max-width:480px; margin:0 auto; min-height:100vh; padding-bottom:80px; position:relative; }
+  .screen{ display:none; padding:20px; }
+  .screen.active{ display:block; }
+
+  #authScreen{ display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+  .auth-box{ width:100%; max-width:380px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:28px; }
+  .auth-logo{ text-align:center; font-size:26px; font-weight:700; color:var(--teal-400); margin-bottom:4px; }
+  .auth-sub{ text-align:center; color:var(--text-dim); font-size:13px; margin-bottom:20px; }
+  label{ display:block; font-size:13px; color:var(--text-dim); margin:12px 0 4px; }
+  input, select, textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--text); font-family:inherit; font-size:14px;
+  }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--teal-500); }
+  .btn{ display:inline-block; width:100%; padding:12px; border-radius:10px; border:none; font-weight:600; font-size:14px; cursor:pointer; font-family:inherit; text-align:center; }
+  .btn-primary{ background:var(--teal-500); color:#08130F; }
+  .btn-ghost{ background:var(--panel2); color:var(--text); border:1px solid var(--line); }
+  .btn-sm{ padding:8px 12px; font-size:13px; width:auto; }
+  .auth-switch{ text-align:center; margin-top:16px; font-size:13px; color:var(--text-dim); }
+  .auth-switch a{ color:var(--gold-500); cursor:pointer; text-decoration:underline; }
+  .auth-err{ color:var(--red-500); font-size:13px; margin-top:8px; min-height:18px; }
+
+  .app-header{ display:flex; justify-content:space-between; align-items:center; padding:20px 20px 10px; }
+  .app-title{ font-size:19px; font-weight:700; color:var(--teal-400); }
+  .app-greeting{ font-size:13px; color:var(--text-dim); }
+  .logout-link{ font-size:12px; color:var(--text-dim); text-decoration:underline; cursor:pointer; }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; }
+  .empty-state{ text-align:center; padding:30px 10px; color:var(--text-dim); font-size:14px; }
+  .empty-state .ic{ font-size:32px; margin-bottom:8px; }
+
+  .jar-card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px; }
+  .jar-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .jar-name{ font-weight:600; font-size:14px; }
+  .jar-percent{ font-size:12px; color:var(--text-dim); }
+  .jar-balance{ font-size:20px; font-weight:700; font-family:'JetBrains Mono', monospace; }
+  .jar-bar-bg{ background:var(--panel2); border-radius:6px; height:8px; overflow:hidden; margin-top:8px; }
+  .jar-bar-fill{ height:100%; border-radius:6px; }
+
+  .bottom-nav{ position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto; background:var(--panel); border-top:1px solid var(--line); display:flex; }
+  .navbtn{ flex:1; text-align:center; padding:10px 0 8px; background:none; border:none; color:var(--text-dim); font-family:inherit; font-size:11px; cursor:pointer; }
+  .navbtn .ic{ font-size:20px; display:block; margin-bottom:2px; }
+  .navbtn.on{ color:var(--teal-400); }
+
+  .overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:flex-end; justify-content:center; }
+  .overlay.show{ display:flex; }
+  .sheet{ background:var(--panel); width:100%; max-width:480px; border-radius:20px 20px 0 0; padding:24px 20px 30px; max-height:88vh; overflow-y:auto; position:relative; }
+  .sheet-close{ position:absolute; top:16px; right:16px; background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<!-- ============ MÀN HÌNH ĐĂNG NHẬP / ĐĂNG KÝ ============ -->
+<div id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">🏺 Sổ Chi Tiêu Gia Đình</div>
+    <div class="auth-sub">Quản lý tài chính theo phương pháp 6 chiếc lọ</div>
+
+    <div id="loginForm">
+      <label>Email</label>
+      <input id="loginEmail" type="email" placeholder="email@example.com">
+      <label>Mật khẩu</label>
+      <input id="loginPass" type="password" placeholder="••••••••">
+      <div style="text-align:right; margin-top:6px;">
+        <span onclick="showForgotPassword()" style="color:var(--gold-500); font-size:12px; cursor:pointer; text-decoration:underline;">Quên mật khẩu?</span>
+      </div>
+      <div id="loginErr" class="auth-err"></div>
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="doLogin()">Đăng nhập</button>
+      <div class="auth-switch">Chưa có tài khoản? <a onclick="showRegisterForm()">Đăng ký ngay</a></div>
+    </div>
+
+    <div id="registerForm" style="display:none;">
+      <label>Tên gia đình</label>
+      <input id="regFamilyName" placeholder="VD: Gia đình Hai & Vợ">
+      <label>Email</label>
+      <input id="regEmail" type="email" placeholder="email@example.com">
+      <label>Mật khẩu</label>
+      <input id="regPass" type="password" placeholder="Tối thiểu 6 ký tự">
+      <div id="registerErr" class="auth-err"></div>
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="doRegister()">Đăng ký</button>
+      <div class="auth-switch">Đã có tài khoản? <a onclick="showLoginForm()">Đăng nhập</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MÀN HÌNH THIẾT LẬP 6 LỌ (lần đầu) ============ -->
+<div id="jarSetupScreen" style="display:none; padding:20px; max-width:480px; margin:0 auto;">
+  <h2 style="color:var(--teal-400);">🏺 Thiết lập 6 chiếc lọ</h2>
+  <p style="color:var(--text-dim); font-size:13px; line-height:1.5;">
+    Đặt tỷ lệ % cho từng lọ (tổng phải đúng 100%). Đây là tỷ lệ gợi ý chuẩn theo phương pháp 6 chiếc lọ, bạn có thể chỉnh lại tuỳ ý.
+  </p>
+  <div id="jarSetupList"></div>
+  <div class="card-tight card" id="jarTotalBox" style="margin-top:10px; text-align:center; font-weight:600;"></div>
+  <button class="btn btn-primary" style="margin-top:16px;" onclick="saveJarSetup()">Lưu thiết lập</button>
+</div>
+
+<!-- ============ ỨNG DỤNG CHÍNH ============ -->
+<div id="appShell" style="display:none;">
+
+  <div class="app-header">
+    <div>
+      <div class="app-title">🏺 Sổ Chi Tiêu Gia Đình</div>
+      <div class="app-greeting" id="familyGreeting">Xin chào</div>
+    </div>
+    <span class="logout-link" onclick="doLogout()">Đăng xuất</span>
+  </div>
+
+  <!-- ---- TAB: TỔNG QUAN ---- -->
+  <div class="screen active" id="screen-tong-quan">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between;">
+        <div>
+          <div style="font-size:12px; color:var(--text-dim);">Tổng số dư 6 lọ</div>
+          <div class="mono" style="font-size:24px; font-weight:700; color:var(--teal-400);" id="totalBalance">0đ</div>
+        </div>
+      </div>
+    </div>
+    <div id="jarListBox"></div>
+  </div>
+
+  <!-- ---- TAB: GIAO DỊCH ---- -->
+  <div class="screen" id="screen-giao-dich">
+    <button class="btn btn-primary" style="margin-bottom:14px;" onclick="openAddTransaction()">+ Thêm khoản thu/chi</button>
+    <div class="card">
+      <div id="transactionListBox">
+        <div class="empty-state"><div class="ic">📒</div>Chưa có giao dịch nào.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---- TAB: BÁO CÁO ---- -->
+  <div class="screen" id="screen-bao-cao">
+    <div class="card">
+      <div class="empty-state"><div class="ic">📊</div>Sắp có báo cáo cuối tháng.</div>
+    </div>
+  </div>
+
+  <!-- ---- TAB: CÀI ĐẶT ---- -->
+  <div class="screen" id="screen-cai-dat">
+    <div class="card">
+      <div class="empty-state"><div class="ic">⚙️</div>Sắp có phần chỉnh tỷ lệ lọ.</div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="navbtn on" id="nav-tong-quan" onclick="showTab('tong-quan')"><span class="ic">🏺</span>Tổng quan</button>
+    <button class="navbtn" id="nav-giao-dich" onclick="showTab('giao-dich')"><span class="ic">💸</span>Giao dịch</button>
+    <button class="navbtn" id="nav-bao-cao" onclick="showTab('bao-cao')"><span class="ic">📊</span>Báo cáo</button>
+    <button class="navbtn" id="nav-cai-dat" onclick="showTab('cai-dat')"><span class="ic">⚙️</span>Cài đặt</button>
+  </div>
+</div>
+
+<!-- ============ FIREBASE ============ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAokb_038LzR4edeSshJVh_sbwN6TYxFqY",
+  authDomain: "so-chi-tieu-gia-dinh.firebaseapp.com",
+  projectId: "so-chi-tieu-gia-dinh",
+  storageBucket: "so-chi-tieu-gia-dinh.firebasestorage.app",
+  messagingSenderId: "942010788600",
+  appId: "1:942010788600:web:5f6a2401feeb9579f0e90d"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let familyRef = null;
+let currentFamilyName = '';
+let jars = [];
+let transactions = [];
+
+const DEFAULT_JARS = [
+  { id: 'NEC', name: 'Nhu cầu thiết yếu', percent: 55, color: '#3FBF9F' },
+  { id: 'FFA', name: 'Tự do tài chính', percent: 10, color: '#E0B44C' },
+  { id: 'LTSS', name: 'Tiết kiệm dài hạn', percent: 10, color: '#5E9AD4' },
+  { id: 'EDU', name: 'Giáo dục', percent: 10, color: '#B584E0' },
+  { id: 'PLAY', name: 'Hưởng thụ', percent: 10, color: '#E08D5E' },
+  { id: 'GIVE', name: 'Cho đi', percent: 5, color: '#E0625C' },
+];
+
+function money(n){ return Math.round(n||0).toLocaleString('vi-VN') + 'đ'; }
+
+// ---------- AUTH UI SWITCHING ----------
+function showLoginForm(){
+  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('registerForm').style.display = 'none';
+}
+function showRegisterForm(){
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = 'block';
+}
+function showForgotPassword(){
+  const email = prompt('Nhập email đã đăng ký để nhận link đặt lại mật khẩu:');
+  if (!email) return;
+  auth.sendPasswordResetEmail(email).then(() => {
+    alert('Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.');
+  }).catch(e => alert('Lỗi: ' + e.message));
+}
+
+// ---------- ĐĂNG KÝ ----------
+function doRegister(){
+  const familyName = document.getElementById('regFamilyName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass = document.getElementById('regPass').value;
+  const errBox = document.getElementById('registerErr');
+  errBox.textContent = '';
+
+  if (!familyName){ errBox.textContent = 'Vui lòng nhập tên gia đình.'; return; }
+  if (!email){ errBox.textContent = 'Vui lòng nhập email.'; return; }
+  if (pass.length < 6){ errBox.textContent = 'Mật khẩu cần tối thiểu 6 ký tự.'; return; }
+
+  auth.createUserWithEmailAndPassword(email, pass).then(cred => {
+    return db.collection('families').doc(cred.user.uid).set({
+      familyName: familyName,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }).catch(e => {
+    if (e.code === 'auth/email-already-in-use'){
+      errBox.textContent = 'Email này đã được đăng ký.';
+    } else if (e.code === 'auth/invalid-email'){
+      errBox.textContent = 'Email không hợp lệ.';
+    } else {
+      errBox.textContent = 'Lỗi: ' + e.message;
+    }
+  });
+}
+
+// ---------- ĐĂNG NHẬP ----------
+function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errBox = document.getElementById('loginErr');
+  errBox.textContent = '';
+  if (!email || !pass){ errBox.textContent = 'Vui lòng nhập đầy đủ email và mật khẩu.'; return; }
+  auth.signInWithEmailAndPassword(email, pass).catch(e => {
+    if (['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(e.code)){
+      errBox.textContent = 'Email hoặc mật khẩu không đúng.';
+    } else {
+      errBox.textContent = 'Lỗi: ' + e.message;
+    }
+  });
+}
+function doLogout(){ auth.signOut(); }
+
+// ---------- THIẾT LẬP LỌ LẦN ĐẦU ----------
+function renderJarSetup(){
+  const box = document.getElementById('jarSetupList');
+  box.innerHTML = DEFAULT_JARS.map(j => `
+    <div style="margin-bottom:12px;">
+      <label>${j.name} (mặc định ${j.percent}%)</label>
+      <input type="number" id="setupPercent-${j.id}" value="${j.percent}" min="0" max="100" oninput="updateJarTotal()">
+    </div>
+  `).join('');
+  updateJarTotal();
+}
+function updateJarTotal(){
+  const total = DEFAULT_JARS.reduce((s,j) => s + (parseFloat(document.getElementById('setupPercent-'+j.id).value)||0), 0);
+  const box = document.getElementById('jarTotalBox');
+  box.textContent = 'Tổng: ' + total + '%';
+  box.style.color = total === 100 ? 'var(--teal-400)' : 'var(--red-500)';
+}
+function saveJarSetup(){
+  const total = DEFAULT_JARS.reduce((s,j) => s + (parseFloat(document.getElementById('setupPercent-'+j.id).value)||0), 0);
+  if (Math.abs(total - 100) > 0.01){ alert('Tổng tỷ lệ phải đúng 100%. Hiện tại: ' + total + '%'); return; }
+  const newJars = DEFAULT_JARS.map(j => ({
+    id: j.id, name: j.name, color: j.color,
+    percent: parseFloat(document.getElementById('setupPercent-'+j.id).value) || 0
+  }));
+  familyRef.set({ jars: newJars, jarsConfigured: true }, { merge: true }).then(() => {
+    jars = newJars;
+    document.getElementById('jarSetupScreen').style.display = 'none';
+    document.getElementById('appShell').style.display = 'block';
+    listenTransactions();
+  }).catch(e => alert('Lỗi: ' + e.message));
+}
+
+// ---------- TAB SWITCHING ----------
+function showTab(name){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b => b.classList.remove('on'));
+  document.getElementById('nav-' + name).classList.add('on');
+}
+
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+function openAddTransaction(){
+  alert('Tính năng thêm giao dịch sẽ hoàn thiện ở bước tiếp theo.');
+}
+
+function listenTransactions(){
+  familyRef.collection('transactions').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
+    transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderJars();
+  });
+}
+
+function renderJars(){
+  const box = document.getElementById('jarListBox');
+  const totalIncome = transactions.filter(t => t.type === 'thu').reduce((s,t) => s + (t.amount||0), 0);
+
+  let grandTotal = 0;
+  box.innerHTML = jars.map(j => {
+    const allocated = totalIncome * (j.percent/100);
+    const spent = transactions.filter(t => t.type === 'chi' && t.jarId === j.id).reduce((s,t) => s + (t.amount||0), 0);
+    const balance = allocated - spent;
+    grandTotal += balance;
+    const pctUsed = allocated > 0 ? Math.min(100, (spent/allocated)*100) : 0;
+    return `
+      <div class="jar-card">
+        <div class="jar-top">
+          <div class="jar-name">${j.name}</div>
+          <div class="jar-percent">${j.percent}%</div>
+        </div>
+        <div class="jar-balance" style="color:${balance < 0 ? 'var(--red-500)' : 'var(--text)'};">${money(balance)}</div>
+        <div class="jar-bar-bg">
+          <div class="jar-bar-fill" style="width:${pctUsed}%; background:${j.color};"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('totalBalance').textContent = money(grandTotal);
+}
+
+// ---------- AUTH STATE ----------
+auth.onAuthStateChanged(user => {
+  if (user){
+    familyRef = db.collection('families').doc(user.uid);
+    familyRef.get().then(doc => {
+      const data = doc.exists ? doc.data() : {};
+      currentFamilyName = data.familyName || '';
+      document.getElementById('familyGreeting').textContent = 'Xin chào, ' + currentFamilyName;
+
+      if (data.jarsConfigured === true && Array.isArray(data.jars)){
+        jars = data.jars;
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('jarSetupScreen').style.display = 'none';
+        document.getElementById('appShell').style.display = 'block';
+        listenTransactions();
+      } else {
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('appShell').style.display = 'none';
+        document.getElementById('jarSetupScreen').style.display = 'block';
+        renderJarSetup();
+      }
+    });
+  } else {
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('jarSetupScreen').style.display = 'none';
+    document.getElementById('appShell').style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>
